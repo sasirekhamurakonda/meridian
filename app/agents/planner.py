@@ -1,6 +1,19 @@
 from app.agents.base import BaseAgent
 from app.config import get_settings
 from app.models.schemas import PlannerOutput
+from app.services.search.query_builder import is_academic_query
+
+
+def _target_sub_questions(query: str, requested: int | None) -> int:
+    settings = get_settings()
+    target = requested or settings.max_sub_questions
+    target = max(settings.min_sub_questions, min(target, settings.max_sub_questions))
+
+    words = len(query.split())
+    if words <= 8 and not is_academic_query(query):
+        return min(target, 2)
+
+    return target
 
 
 class PlannerAgent(BaseAgent):
@@ -13,9 +26,7 @@ class PlannerAgent(BaseAgent):
     )
 
     async def decompose(self, query: str, max_sub_questions: int | None = None) -> list[str]:
-        settings = get_settings()
-        target = max_sub_questions or settings.max_sub_questions
-        target = max(settings.min_sub_questions, min(target, settings.max_sub_questions))
+        target = _target_sub_questions(query, max_sub_questions)
 
         user_prompt = (
             f'Query: "{query}"\n\n'

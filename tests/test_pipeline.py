@@ -10,6 +10,18 @@ from app.pipeline.orchestrator import ResearchOrchestrator
 
 
 @pytest.mark.asyncio
+async def test_planner_limits_sub_questions_for_simple_queries():
+    llm = AsyncMock()
+    llm.complete_json = AsyncMock(
+        return_value=PlannerOutput(sub_questions=["What are common fruits?", "List citrus fruits"])
+    )
+    planner = PlannerAgent(llm=llm)
+    await planner.decompose("3 fruit names")
+    prompt = llm.complete_json.await_args.kwargs["user"]
+    assert "exactly 2" in prompt
+
+
+@pytest.mark.asyncio
 async def test_planner_parses_sub_questions():
     llm = AsyncMock()
     llm.complete_json = AsyncMock(

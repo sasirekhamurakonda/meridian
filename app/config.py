@@ -47,6 +47,8 @@ class Settings(BaseSettings):
     search_timeout_seconds: float = 15.0
     max_results_per_source: int = 5
     max_web_results_per_query: int = 8
+    max_passages_for_embedding: int = 40
+    embed_batch_size: int = 12
     min_passage_score: float = 0.30
 
     log_level: str = "INFO"

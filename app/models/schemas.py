@@ -19,7 +19,7 @@ class JobStatus(StrEnum):
 
 class ResearchRequest(BaseModel):
     query: str = Field(..., min_length=3, max_length=2000)
-    max_sub_questions: int | None = Field(default=None, ge=3, le=5)
+    max_sub_questions: int | None = Field(default=None, ge=2, le=5)
 
     @field_validator("query")
     @classmethod
@@ -91,7 +91,7 @@ class Passage(BaseModel):
 
 
 class PlannerOutput(BaseModel):
-    sub_questions: list[str] = Field(..., min_length=3, max_length=5)
+    sub_questions: list[str] = Field(..., min_length=2, max_length=5)
 
 
 class CriticOutput(BaseModel):

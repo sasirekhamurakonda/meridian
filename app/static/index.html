@@ -494,10 +494,40 @@
       }
     }
 
-    async function fetchReport(jobId) {
-      const res = await fetch(`/research/${jobId}`, { headers: authHeaders(false) });
-      if (!res.ok) throw new Error("Failed to fetch report");
-      return res.json();
+    async function fetchJob(jobId, retries = 5) {
+      for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+          const res = await fetch(`/research/${jobId}`, { headers: authHeaders(false) });
+          if (res.ok) return res.json();
+          if (res.status >= 500 && attempt < retries) {
+            log(`Server busy, retrying (${attempt + 1}/${retries})…`);
+            await new Promise((r) => setTimeout(r, 4000 * (attempt + 1)));
+            continue;
+          }
+          throw new Error(`Failed to fetch job (${res.status})`);
+        } catch (err) {
+          if (attempt < retries) {
+            log(`Connection lost, retrying (${attempt + 1}/${retries})…`);
+            await new Promise((r) => setTimeout(r, 4000 * (attempt + 1)));
+            continue;
+          }
+          throw err;
+        }
+      }
+      throw new Error("Failed to fetch report");
+    }
+
+    async function waitForJob(jobId, maxAttempts = 60) {
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const job = await fetchJob(jobId, 3);
+        if (job.status === "completed" && job.report) return job;
+        if (job.status === "failed") throw new Error(job.error || "Research failed");
+        if (attempt === 0 || attempt % 3 === 0) {
+          log(`Still running (${job.status})… waiting for agents to finish.`);
+        }
+        await new Promise((r) => setTimeout(r, 5000));
+      }
+      throw new Error("Research timed out. The server may have restarted — try again.");
     }
 
     async function startResearch() {
@@ -543,16 +573,10 @@
             finished = true;
             source.close();
             try {
-              const job = await fetchReport(jobId);
-              if (job.status === "completed" && job.report) {
-                renderReport(job.report);
-                setStatus("Completed", "done");
-                resolve();
-              } else if (job.status === "failed") {
-                reject(new Error(job.error || "Research failed"));
-              } else {
-                resolve();
-              }
+              const job = await waitForJob(jobId);
+              renderReport(job.report);
+              setStatus("Completed", "done");
+              resolve();
             } catch (err) {
               reject(err);
             }
