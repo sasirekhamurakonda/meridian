@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Meridian — Research Intelligence</title>
+  <style>
+    :root {
+      --bg: #0b0f14;
+      --surface: #131a22;
+      --surface2: #1a2430;
+      --border: #243040;
+      --text: #e8eef4;
+      --muted: #8ba3b8;
+      --accent: #3d9cf5;
+      --accent-dim: #2563a8;
+      --success: #34d399;
+      --warn: #fbbf24;
+      --error: #f87171;
+      --radius: 12px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 2rem 1.25rem 4rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, var(--text) 0%, var(--accent) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    header p {
+      color: var(--muted);
+      margin-top: 0.5rem;
+      font-size: 0.95rem;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 0.5rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 100px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 0.875rem 1rem;
+      font-size: 1rem;
+      font-family: inherit;
+      resize: vertical;
+      transition: border-color 0.2s;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .actions {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 1rem;
+      align-items: center;
+    }
+
+    button {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 0.75rem 1.5rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, opacity 0.2s;
+    }
+
+    button:hover:not(:disabled) { background: var(--accent-dim); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .status-badge {
+      font-size: 0.8rem;
+      padding: 0.25rem 0.75rem;
+      border-radius: 999px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .status-idle { background: var(--surface2); color: var(--muted); }
+    .status-running { background: rgba(61, 156, 245, 0.15); color: var(--accent); }
+    .status-done { background: rgba(52, 211, 153, 0.15); color: var(--success); }
+    .status-failed { background: rgba(248, 113, 113, 0.15); color: var(--error); }
+
+    .pipeline {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+
+    .stage {
+      flex: 1;
+      min-width: 100px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.75rem;
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--muted);
+      transition: all 0.3s;
+    }
+
+    .stage.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      box-shadow: 0 0 12px rgba(61, 156, 245, 0.2);
+    }
+
+    .stage.done {
+      border-color: var(--success);
+      color: var(--success);
+    }
+
+    .stage .icon { font-size: 1.25rem; display: block; margin-bottom: 0.25rem; }
+
+    .log {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      max-height: 200px;
+      overflow-y: auto;
+      font-family: "SF Mono", Monaco, Consolas, monospace;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .log-entry { margin-bottom: 0.35rem; }
+    .log-entry .time { color: #4a6080; margin-right: 0.5rem; }
+
+    #report-section { display: none; }
+    #report-section.visible { display: block; }
+
+    .report-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.25rem;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .report-header h2 { font-size: 1.25rem; }
+
+    .confidence {
+      font-size: 0.8rem;
+      padding: 0.3rem 0.75rem;
+      border-radius: 999px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .confidence-high { background: rgba(52, 211, 153, 0.15); color: var(--success); }
+    .confidence-medium { background: rgba(251, 191, 36, 0.15); color: var(--warn); }
+    .confidence-low { background: rgba(248, 113, 113, 0.15); color: var(--error); }
+
+    .section-title {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin: 1.25rem 0 0.6rem;
+    }
+
+    .summary-text {
+      font-size: 1.05rem;
+      line-height: 1.7;
+      color: var(--text);
+    }
+
+    ul.findings { list-style: none; }
+    ul.findings li {
+      padding: 0.5rem 0;
+      padding-left: 1.25rem;
+      position: relative;
+      border-bottom: 1px solid var(--border);
+    }
+    ul.findings li::before {
+      content: "→";
+      position: absolute;
+      left: 0;
+      color: var(--accent);
+    }
+
+    .evidence-item, .contradiction-item, .recommendation-item {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .recommendation-item .rank {
+      display: inline-block;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.8rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 6px;
+      margin-right: 0.5rem;
+    }
+
+    .recommendation-item .name { font-weight: 700; font-size: 1.05rem; }
+    .recommendation-item .reason { margin-top: 0.5rem; color: var(--text); }
+    .recommendation-item .best-for {
+      margin-top: 0.35rem;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    .evidence-item .claim { font-weight: 600; margin-bottom: 0.5rem; }
+
+    .source-link {
+      display: block;
+      font-size: 0.85rem;
+      color: var(--accent);
+      text-decoration: none;
+      margin-top: 0.35rem;
+    }
+    .source-link:hover { text-decoration: underline; }
+
+    .gap-list li { color: var(--warn); }
+
+    .error-box {
+      background: rgba(248, 113, 113, 0.1);
+      border: 1px solid var(--error);
+      border-radius: 8px;
+      padding: 1rem;
+      color: var(--error);
+      display: none;
+    }
+    .error-box.visible { display: block; }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Meridian</h1>
+      <p>Multi-agent research intelligence — ask a question, watch agents work, get a structured report.</p>
+    </header>
+
+    <div class="card">
+      <label for="api-key">API key (optional — only if enabled on server)</label>
+      <input id="api-key" type="password" placeholder="Leave blank unless your deployment requires it"
+        style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:0.6rem 0.875rem;margin-bottom:1rem;font-size:0.9rem;" />
+      <label for="query">Research question</label>
+      <textarea id="query" placeholder="e.g. What are the latest advances in quantum error correction?"></textarea>
+      <div class="actions">
+        <button id="submit-btn" type="button">Start research</button>
+        <span id="status-badge" class="status-badge status-idle">Ready</span>
+      </div>
+      <div id="error-box" class="error-box" style="margin-top:1rem;"></div>
+    </div>
+
+    <div id="progress-section" class="card hidden">
+      <label>Agent pipeline</label>
+      <div class="pipeline" id="pipeline">
+        <div class="stage" data-stage="planner"><span class="icon">🧠</span>Planner</div>
+        <div class="stage" data-stage="researcher"><span class="icon">🔍</span>Researcher</div>
+        <div class="stage" data-stage="extractor"><span class="icon">📊</span>Extractor</div>
+        <div class="stage" data-stage="critic"><span class="icon">⚖️</span>Critic</div>
+        <div class="stage" data-stage="synthesizer"><span class="icon">📝</span>Synthesizer</div>
+      </div>
+      <div class="log" id="log"></div>
+    </div>
+
+    <div id="report-section" class="card">
+      <div class="report-header">
+        <h2>Research report</h2>
+        <span id="confidence" class="confidence"></span>
+      </div>
+      <div class="section-title">Summary</div>
+      <p id="summary" class="summary-text"></p>
+      <div id="recommendations-block" class="hidden">
+        <div class="section-title">Top recommendations</div>
+        <div id="recommendations"></div>
+      </div>
+      <div class="section-title">Key findings</div>
+      <ul id="findings" class="findings"></ul>
+      <div class="section-title">Evidence</div>
+      <div id="evidence"></div>
+      <div class="section-title">Contradictions</div>
+      <div id="contradictions"></div>
+      <div class="section-title">Knowledge gaps</div>
+      <ul id="gaps" class="findings gap-list"></ul>
+    </div>
+  </div>
+
+  <script>
+    const STAGES = ["planner", "researcher", "extractor", "critic", "synthesizer"];
+
+    const $ = (id) => document.getElementById(id);
+
+    const savedKey = sessionStorage.getItem("meridian_api_key");
+    if (savedKey) $("api-key").value = savedKey;
+    $("api-key").addEventListener("change", (e) => {
+      sessionStorage.setItem("meridian_api_key", e.target.value.trim());
+    });
+
+    function apiKey() {
+      return $("api-key").value.trim();
+    }
+
+    function authHeaders(json = true) {
+      const headers = {};
+      if (json) headers["Content-Type"] = "application/json";
+      const key = apiKey();
+      if (key) headers["X-API-Key"] = key;
+      return headers;
+    }
+
+    function streamUrl(jobId) {
+      const key = apiKey();
+      const base = `/research/${jobId}/stream`;
+      return key ? `${base}?api_key=${encodeURIComponent(key)}` : base;
+    }
+
+    function setStatus(text, cls) {
+      const badge = $("status-badge");
+      badge.textContent = text;
+      badge.className = `status-badge status-${cls}`;
+    }
+
+    function log(msg) {
+      const el = $("log");
+      const time = new Date().toLocaleTimeString();
+      const entry = document.createElement("div");
+      entry.className = "log-entry";
+      entry.innerHTML = `<span class="time">${time}</span>${escapeHtml(msg)}`;
+      el.appendChild(entry);
+      el.scrollTop = el.scrollHeight;
+    }
+
+    function escapeHtml(str) {
+      const d = document.createElement("div");
+      d.textContent = str;
+      return d.innerHTML;
+    }
+
+    function resetUI() {
+      $("error-box").classList.remove("visible");
+      $("error-box").textContent = "";
+      $("report-section").classList.remove("visible");
+      $("progress-section").classList.remove("hidden");
+      $("log").innerHTML = "";
+      STAGES.forEach((s) => {
+        const el = document.querySelector(`[data-stage="${s}"]`);
+        el.classList.remove("active", "done");
+      });
+    }
+
+    function markStage(stage, state) {
+      const el = document.querySelector(`[data-stage="${stage}"]`);
+      if (!el) return;
+      el.classList.remove("active", "done");
+      if (state === "active") el.classList.add("active");
+      if (state === "done") el.classList.add("done");
+    }
+
+    function renderReport(report) {
+      $("report-section").classList.add("visible");
+      $("summary").textContent = report.summary || "";
+
+      const conf = $("confidence");
+      conf.textContent = `${report.confidence} confidence`;
+      conf.className = `confidence confidence-${report.confidence}`;
+
+      const recBlock = $("recommendations-block");
+      const recContainer = $("recommendations");
+      recContainer.innerHTML = "";
+      if ((report.recommendations || []).length) {
+        recBlock.classList.remove("hidden");
+        report.recommendations.forEach((rec) => {
+          const div = document.createElement("div");
+          div.className = "recommendation-item";
+          const rank = rec.rank ? `<span class="rank">#${rec.rank}</span>` : "";
+          const bestFor = rec.best_for
+            ? `<div class="best-for">Best for: ${escapeHtml(rec.best_for)}</div>` : "";
+          const sources = (rec.sources || []).map((s) =>
+            `<a class="source-link" href="${escapeHtml(s.url)}" target="_blank" rel="noopener">${escapeHtml(s.title)}</a>`
+          ).join("");
+          div.innerHTML = `
+            <div><span class="name">${rank}${escapeHtml(rec.name)}</span></div>
+            <div class="reason">${escapeHtml(rec.reason)}</div>
+            ${bestFor}
+            ${sources}
+          `;
+          recContainer.appendChild(div);
+        });
+      } else {
+        recBlock.classList.add("hidden");
+      }
+
+      const findings = $("findings");
+      findings.innerHTML = "";
+      (report.key_findings || []).forEach((f) => {
+        const li = document.createElement("li");
+        li.textContent = f;
+        findings.appendChild(li);
+      });
+
+      const evidence = $("evidence");
+      evidence.innerHTML = "";
+      (report.evidence || []).forEach((item) => {
+        const div = document.createElement("div");
+        div.className = "evidence-item";
+        let sources = (item.sources || []).map((s) =>
+          `<a class="source-link" href="${escapeHtml(s.url)}" target="_blank" rel="noopener">${escapeHtml(s.title)}</a>
+           <div style="font-size:0.85rem;color:var(--muted);margin-top:0.25rem">${escapeHtml(s.excerpt?.slice(0, 200) || "")}</div>`
+        ).join("");
+        div.innerHTML = `<div class="claim">${escapeHtml(item.claim)}</div>${sources}`;
+        evidence.appendChild(div);
+      });
+
+      const contradictions = $("contradictions");
+      contradictions.innerHTML = "";
+      if (!(report.contradictions || []).length) {
+        contradictions.innerHTML = '<p style="color:var(--muted);font-size:0.9rem">None detected.</p>';
+      }
+      (report.contradictions || []).forEach((c) => {
+        const div = document.createElement("div");
+        div.className = "contradiction-item";
+        div.innerHTML = `<strong>${escapeHtml(c.topic)}</strong><ul style="margin-top:0.5rem;padding-left:1.25rem">
+          ${(c.positions || []).map((p) => `<li>${escapeHtml(p)}</li>`).join("")}
+        </ul>`;
+        contradictions.appendChild(div);
+      });
+
+      const gaps = $("gaps");
+      gaps.innerHTML = "";
+      if (!(report.gaps || []).length) {
+        const li = document.createElement("li");
+        li.textContent = "No significant gaps identified.";
+        li.style.color = "var(--muted)";
+        gaps.appendChild(li);
+      }
+      (report.gaps || []).forEach((g) => {
+        const li = document.createElement("li");
+        li.textContent = g;
+        gaps.appendChild(li);
+      });
+    }
+
+    function handleEvent(data) {
+      const { stage, status, data: payload } = data;
+      if (status === "started") {
+        markStage(stage, "active");
+        log(`${stage} agent started…`);
+      } else if (status === "progress") {
+        const detail = payload.source ? `${payload.source}: ${payload.count} results` : JSON.stringify(payload);
+        log(`${stage} — ${detail}`);
+      } else if (status === "completed") {
+        markStage(stage, "done");
+        log(`${stage} agent completed.`);
+      } else if (status === "error") {
+        log(`Error: ${payload.message || "unknown"}`);
+      }
+    }
+
+    async function fetchReport(jobId) {
+      const res = await fetch(`/research/${jobId}`, { headers: authHeaders(false) });
+      if (!res.ok) throw new Error("Failed to fetch report");
+      return res.json();
+    }
+
+    async function startResearch() {
+      const query = $("query").value.trim();
+      if (query.length < 3) {
+        $("error-box").textContent = "Please enter a question (at least 3 characters).";
+        $("error-box").classList.add("visible");
+        return;
+      }
+
+      resetUI();
+      $("submit-btn").disabled = true;
+      setStatus("Submitting…", "running");
+
+      try {
+        const res = await fetch("/research", {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({ query }),
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || `Request failed (${res.status})`);
+        }
+
+        const { id: jobId } = await res.json();
+        log(`Job created: ${jobId}`);
+        setStatus("Running…", "running");
+
+        await new Promise((resolve, reject) => {
+          const source = new EventSource(streamUrl(jobId));
+          let finished = false;
+
+          const finish = async () => {
+            if (finished) return;
+            finished = true;
+            source.close();
+            try {
+              const job = await fetchReport(jobId);
+              if (job.status === "completed" && job.report) {
+                renderReport(job.report);
+                setStatus("Completed", "done");
+                resolve();
+              } else if (job.status === "failed") {
+                reject(new Error(job.error || "Research failed"));
+              } else {
+                resolve();
+              }
+            } catch (err) {
+              reject(err);
+            }
+          };
+
+          const onPipelineEvent = (e) => {
+            try { handleEvent(JSON.parse(e.data)); } catch (_) {}
+          };
+
+          ["started", "completed", "progress", "update"].forEach((type) => {
+            source.addEventListener(type, onPipelineEvent);
+          });
+
+          source.addEventListener("done", finish);
+
+          source.addEventListener("error", (e) => {
+            if (e.data) onPipelineEvent(e);
+          });
+
+          source.onerror = async () => {
+            if (finished) return;
+            await finish();
+          };
+        });
+      } catch (err) {
+        $("error-box").textContent = err.message;
+        $("error-box").classList.add("visible");
+        setStatus("Failed", "failed");
+      } finally {
+        $("submit-btn").disabled = false;
+      }
+    }
+
+    $("submit-btn").addEventListener("click", startResearch);
+    $("query").addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) startResearch();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,36 @@
+Meridian — Multi-Agent Research Intelligence API
+5 specialized AI agents that decompose your question, search the web in parallel, rank evidence semantically, detect contradictions, and stream a structured report — live.
+
+The Problem
+AI research tools are shallow. A basic RAG system fires one query at a vector database and returns a chunk. It doesn't understand what you're really asking, doesn't verify its sources, and can't tell you what it doesn't know.
+
+Meridian does better.
+
+How It Works
+POST /research  →  query arrives
+                        │
+              ┌─────────▼──────────┐
+              │   PLANNER AGENT    │  LLM decomposes → 3-5 sub-questions
+              └─────────┬──────────┘
+                        │ sub-questions (parallel)
+         ┌──────────────┼──────────────┐
+         ▼              ▼              ▼
+  ┌────────────┐ ┌────────────┐ ┌────────────┐
+  │ RESEARCHER │ │ RESEARCHER │ │ RESEARCHER │  Wikipedia + arXiv + DuckDuckGo
+  └──────┬─────┘ └──────┬─────┘ └──────┬─────┘
+         └──────────────┼──────────────┘
+                        │ all raw passages
+              ┌─────────▼──────────┐
+              │  EXTRACTOR AGENT   │  fastembed cosine ranking
+              └─────────┬──────────┘
+                        │ top-k passages
+              ┌─────────▼──────────┐
+              │   CRITIC AGENT     │  LLM finds contradictions + gaps
+              └─────────┬──────────┘
+                        │
+              ┌─────────▼──────────┐
+              │ SYNTHESIZER AGENT  │  LLM builds final structured report
+              └─────────┬──────────┘
+                        │
+              GET /research/{id}  →  full JSON report
+Each step streams live to GET /research/{id}/stream as Server-Sent Events.

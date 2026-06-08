@@ -1,0 +1,72 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: meridian
+      POSTGRES_PASSWORD: meridian
+      POSTGRES_DB: meridian
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U meridian"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://meridian:meridian@postgres:5432/meridian
+      REDIS_URL: redis://redis:6379/0
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.groq.com/openai/v1}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["scripts/start.sh"]
+
+  localai:
+    profiles: ["cpu"]
+    image: localai/localai:latest
+    ports:
+      - "8081:8080"
+    environment:
+      MODELS_PATH: /models
+    volumes:
+      - localai_models:/models
+
+  vllm:
+    profiles: ["gpu"]
+    image: vllm/vllm-openai:latest
+    ports:
+      - "8000:8000"
+    ipc: host
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    command: ["--model", "Qwen/Qwen2.5-7B-Instruct", "--host", "0.0.0.0", "--port", "8000"]
+
+volumes:
+  postgres_data:
+  localai_models:
