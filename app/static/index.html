@@ -294,9 +294,6 @@
     </header>
 
     <div class="card">
-      <label for="api-key">API key (optional — only if enabled on server)</label>
-      <input id="api-key" type="password" placeholder="Leave blank unless your deployment requires it"
-        style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:0.6rem 0.875rem;margin-bottom:1rem;font-size:0.9rem;" />
       <label for="query">Research question</label>
       <textarea id="query" placeholder="e.g. What are the latest advances in quantum error correction?"></textarea>
       <div class="actions">
@@ -345,28 +342,14 @@
 
     const $ = (id) => document.getElementById(id);
 
-    const savedKey = sessionStorage.getItem("meridian_api_key");
-    if (savedKey) $("api-key").value = savedKey;
-    $("api-key").addEventListener("change", (e) => {
-      sessionStorage.setItem("meridian_api_key", e.target.value.trim());
-    });
-
-    function apiKey() {
-      return $("api-key").value.trim();
-    }
-
     function authHeaders(json = true) {
       const headers = {};
       if (json) headers["Content-Type"] = "application/json";
-      const key = apiKey();
-      if (key) headers["X-API-Key"] = key;
       return headers;
     }
 
     function streamUrl(jobId) {
-      const key = apiKey();
-      const base = `/research/${jobId}/stream`;
-      return key ? `${base}?api_key=${encodeURIComponent(key)}` : base;
+      return `/research/${jobId}/stream`;
     }
 
     function setStatus(text, cls) {
@@ -538,7 +521,13 @@
 
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          throw new Error(err.detail || `Request failed (${res.status})`);
+          const detail = err.detail;
+          const message = typeof detail === "string"
+            ? detail
+            : Array.isArray(detail)
+              ? detail.map((d) => d.msg || JSON.stringify(d)).join("; ")
+              : `Request failed (${res.status})`;
+          throw new Error(message);
         }
 
         const { id: jobId } = await res.json();

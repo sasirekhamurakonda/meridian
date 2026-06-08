@@ -3,9 +3,12 @@ import json
 import uuid
 from uuid import UUID
 
+import structlog
 from arq import create_pool
 from arq.connections import RedisSettings
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from redis.exceptions import RedisError
+from sqlalchemy.exc import SQLAlchemyError
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sse_starlette.sse import EventSourceResponse
@@ -23,6 +26,8 @@ from app.models.schemas import (
     ResearchRequest,
 )
 from app.services.events import get_event_service
+
+logger = structlog.get_logger()
 router = APIRouter(prefix="/research", tags=["research"])
 limiter = Limiter(key_func=get_remote_address)
 _rate_limit = f"{get_settings().rate_limit_per_hour}/hour"
@@ -57,22 +62,36 @@ async def create_research(
         raise HTTPException(status_code=400, detail="Query exceeds maximum length")
 
     job_id = uuid.uuid4()
-    async with async_session_factory() as session:
-        job = ResearchJob(id=job_id, query=body.query, status=JobStatus.QUEUED.value)
-        session.add(job)
-        await session.commit()
+    try:
+        async with async_session_factory() as session:
+            job = ResearchJob(id=job_id, query=body.query, status=JobStatus.QUEUED.value)
+            session.add(job)
+            await session.commit()
+    except SQLAlchemyError as exc:
+        logger.exception("research_db_error", job_id=str(job_id), error=str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database unavailable. Check DATABASE_URL on the server.",
+        ) from exc
 
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
-    pool = await create_pool(redis_settings)
     try:
-        await pool.enqueue_job(
-            "run_research_job",
-            str(job_id),
-            body.query,
-            body.max_sub_questions,
-        )
-    finally:
-        await pool.aclose()
+        pool = await create_pool(redis_settings)
+        try:
+            await pool.enqueue_job(
+                "run_research_job",
+                str(job_id),
+                body.query,
+                body.max_sub_questions,
+            )
+        finally:
+            await pool.aclose()
+    except (RedisError, ConnectionError, OSError) as exc:
+        logger.exception("research_queue_error", job_id=str(job_id), error=str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Job queue unavailable. Check REDIS_URL on the server.",
+        ) from exc
 
     return ResearchCreatedResponse(id=job_id, status=JobStatus.QUEUED)
 
