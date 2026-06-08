@@ -25,5 +25,3 @@ services:
         value: "5"
       - key: JOB_TIMEOUT_SECONDS
         value: "600"
-      - key: PORT
-        value: "8080"

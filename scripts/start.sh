@@ -1,8 +1,37 @@
 #!/bin/sh
 set -e
 
+if [ -z "$DATABASE_URL" ]; then
+  echo "ERROR: DATABASE_URL is not set. Add your Neon URL in Render → Environment."
+  exit 1
+fi
+
+if [ -z "$REDIS_URL" ]; then
+  echo "ERROR: REDIS_URL is not set. Add your Upstash rediss:// URL in Render → Environment."
+  exit 1
+fi
+
+if [ -z "$LLM_API_KEY" ]; then
+  echo "ERROR: LLM_API_KEY is not set. Add your Groq API key in Render → Environment."
+  exit 1
+fi
+
 echo "Running database migrations..."
-alembic upgrade head
+attempt=1
+max_attempts=5
+while [ "$attempt" -le "$max_attempts" ]; do
+  if alembic upgrade head; then
+    break
+  fi
+  if [ "$attempt" -eq "$max_attempts" ]; then
+    echo "ERROR: Database migration failed after $max_attempts attempts."
+    echo "Check DATABASE_URL uses postgresql+asyncpg://... and ssl=require (not sslmode=require)."
+    exit 1
+  fi
+  echo "Migration attempt $attempt failed, retrying in 5s..."
+  attempt=$((attempt + 1))
+  sleep 5
+done
 
 echo "Starting ARQ worker in background..."
 arq app.worker.WorkerSettings &

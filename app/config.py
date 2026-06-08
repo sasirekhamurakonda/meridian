@@ -1,6 +1,23 @@
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _normalize_database_url(url: str) -> str:
+    if url.startswith("postgresql://"):
+        url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    url = url.replace("sslmode=require", "ssl=require")
+    url = url.replace("sslmode=prefer", "ssl=prefer")
+    url = url.replace("sslmode=disable", "ssl=disable")
+    return url
+
+
+def _normalize_redis_url(url: str) -> str:
+    # Upstash requires TLS; accept redis:// only when explicitly using local dev.
+    if url.startswith("redis://") and "upstash.io" in url:
+        return url.replace("redis://", "rediss://", 1)
+    return url
 
 
 class Settings(BaseSettings):
@@ -30,6 +47,16 @@ class Settings(BaseSettings):
 
     log_level: str = "INFO"
     event_log_ttl_seconds: int = 86400
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def normalize_database_url(cls, value: str) -> str:
+        return _normalize_database_url(value)
+
+    @field_validator("redis_url", mode="before")
+    @classmethod
+    def normalize_redis_url(cls, value: str) -> str:
+        return _normalize_redis_url(value)
 
 
 @lru_cache

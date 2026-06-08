@@ -34,7 +34,7 @@ This guide deploys Meridian on entirely free tiers:
 3. Copy the **pooled connection string** (important for serverless)
 4. Convert the URL format:
    - Neon gives: `postgresql://user:pass@host/db?sslmode=require`
-   - You need: `postgresql+asyncpg://user:pass@host/db?sslmode=require`
+   - You need: `postgresql+asyncpg://user:pass@host/db?ssl=require` (use `ssl=require`, not `sslmode`)
 
 Save as `DATABASE_URL`.
 
@@ -184,11 +184,42 @@ This requires more ops work but removes external LLM API dependency.
 
 ## Troubleshooting
 
+### Deploy failed on Render
+
+Open **Render → meridian-api → Logs** and look for the first `ERROR:` line.
+
+| Log message | Fix |
+|-------------|-----|
+| `DATABASE_URL is not set` | Render → **Environment** → add Neon URL |
+| `REDIS_URL is not set` | Add Upstash URL (`rediss://...`) |
+| `LLM_API_KEY is not set` | Add Groq API key |
+| `Database migration failed` | Fix `DATABASE_URL` format (see below) |
+| `Port scan timeout` / health check failed | Do **not** set `PORT` manually — Render assigns it automatically |
+
+**Correct `DATABASE_URL` format (Neon):**
+```
+postgresql+asyncpg://user:pass@ep-xxx-pooler.region.aws.neon.tech/neondb?ssl=require
+```
+- Use the **pooled** host (`-pooler` in hostname) from Neon dashboard
+- `postgresql+asyncpg://` not `postgresql://`
+- `ssl=require` not `sslmode=require`
+- URL-encode special characters in the password (`@` → `%40`, `#` → `%23`)
+
+**Correct `REDIS_URL` format (Upstash):**
+```
+rediss://default:TOKEN@your-db.upstash.io:6379
+```
+Use `rediss://` (TLS), not `redis://`.
+
+After fixing env vars: **Manual Deploy → Deploy latest commit**.
+
+---
+
 | Problem | Solution |
 |---------|----------|
 | 503 on first request | Cold start — wait 30–60s or set up keepalive cron |
 | `ready` shows `llm: false` | Check `LLM_API_KEY` and `LLM_BASE_URL` |
-| `ready` shows `postgres: false` | Ensure URL uses `postgresql+asyncpg://` and `sslmode=require` |
+| `ready` shows `postgres: false` | Ensure URL uses `postgresql+asyncpg://` and `ssl=require` |
 | `ready` shows `redis: false` | Use Upstash `rediss://` TLS URL |
 | Jobs stuck in `queued` | Worker runs in same container — check Render logs for ARQ errors |
 | 429 rate limit | Groq free tier exceeded — wait or reduce `RATE_LIMIT_PER_HOUR` |
