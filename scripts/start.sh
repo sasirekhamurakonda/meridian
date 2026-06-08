@@ -16,6 +16,12 @@ if [ -z "$LLM_API_KEY" ]; then
   exit 1
 fi
 
+echo "Validating environment..."
+if ! python scripts/validate_env.py; then
+  echo "ERROR: Fix DATABASE_URL / REDIS_URL in Render → Environment, then redeploy."
+  exit 1
+fi
+
 echo "Running database migrations..."
 attempt=1
 max_attempts=5
@@ -25,7 +31,8 @@ while [ "$attempt" -le "$max_attempts" ]; do
   fi
   if [ "$attempt" -eq "$max_attempts" ]; then
     echo "ERROR: Database migration failed after $max_attempts attempts."
-    echo "Check DATABASE_URL uses postgresql+asyncpg://... and ssl=require (not sslmode=require)."
+    echo "Check DATABASE_URL uses postgresql+asyncpg://user:password@host/db?ssl=require"
+    echo "If your Neon password has @, #, /, or %, URL-encode it (@ → %40, # → %23)."
     exit 1
   fi
   echo "Migration attempt $attempt failed, retrying in 5s..."
